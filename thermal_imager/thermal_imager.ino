@@ -1,4 +1,6 @@
 #include "thermal_imager_header.h"
+#include <WebServer.h>
+#include <WiFi.h>
 
 /******************************** Variable declarations ***********************************/
 GridEYE grideye;
@@ -8,7 +10,6 @@ unsigned int counter;
 float pixels[64];
 float singlePixelValue;
 float interpolatedPixels[576];
-
 
 /******************************* Setup code: Entry point to run once ***********************/
 void setup() {
@@ -22,6 +23,28 @@ void setup() {
   delay(500);
   grideye.begin();
   delay(500);
+
+  // check for partition
+  esp_partition_iterator_t i;
+  i = esp_partition_find(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, nullptr);
+  if (i) {
+    fsys = &LittleFS;
+  } else {
+  }
+  esp_partition_iterator_release(i);
+
+  // mount and format as needed
+  if (!fsys) {
+    ; // bad
+  } else if ((fsys == (fs::FS *)&LittleFS) && (!LittleFS.begin())) {
+    LittleFS.format();
+    ESP.restart();
+  }
+
+  Serial.setDebugOutput(true);
+
+  WiFi.setHostname(HOSTNAME);
+  WiFi.mode(WIFI_STA);
 
   attachInterrupt(captureButton.PIN, isr, FALLING);
   digitalWrite(WEB_SERVER_LED_PIN, LOW);
@@ -51,6 +74,7 @@ void loop() {
   // CAPTURE IMAGE
   if (captureButton.pressed && serverSwitch.pressed == false) {
     captureButton.pressed = false;
+    generate_bmp(interpolatedPixels, LittleFS, "/thermal1.bmp");
     printThermalGrid(interpolatedPixels, 24, 24);
   }
 
@@ -59,7 +83,7 @@ void loop() {
     unsigned long currentTime = millis();
     if (currentTime - serverSwitch.lastPressTime > SERVER_DELAY && serverSwitch.pressed == false) {
       serverSwitch.pressed = true;
-      Serial.println("Turning web server on");
+      startServer();
       digitalWrite(WEB_SERVER_LED_PIN, HIGH);
       serverSwitch.lastPressTime = currentTime;
     }
@@ -69,12 +93,16 @@ void loop() {
     if (serverSwitch.pressed == true && currentTime - serverSwitch.lastPressTime > SERVER_DELAY) {
       captureButton.pressed = false; // they might have pressed it while the server was on
       serverSwitch.pressed = false;
-      Serial.println("Turning web server off");
+      stopServer();
       digitalWrite(WEB_SERVER_LED_PIN, LOW);
       serverSwitch.lastPressTime = currentTime;
     }
   }
+  if (serverSwitch.pressed == true) {
+    handleClient();
+  }
 }
+
 
 /**
  * IRAM_ATTR - Interrupt service routine

@@ -1,15 +1,10 @@
-/**
-
-  Header file, contains global variables, constants, structures,
-  function declarations and other global objects
-
-**/
-
 #ifndef _THERMAL_CAMERA_HEADER_
 #define _THERMAL_CAMERA_HEADER_
-#include "Arduino.h"        
-#include <Wire.h>                                 
+#include "server.h"                                    
 #include <SparkFun_GridEYE_Arduino_Library.h>
+#include <FS.h>
+#include <SPIFFS.h>
+#include <Wire.h> 
 
 /********************************* Pin definitions *********************************/
 #define CAPTURE_PIN 14                                // Capture image button
@@ -22,6 +17,10 @@
 #define DEBOUNCE_DELAY 2000                           // How fast multiple images can be captured (ie once every 2000 millisec)
 #define SERVER_DELAY 3000                             // Same as DEBOUNCE_DELAY, but for the web server
 #define THERMAL_SENSOR_RESOLUTION 64                  // Total number of pixels in sensor used
+#define IMG_WIDTH  24
+#define IMG_HEIGHT 24
+#define MIN_TEMPERATURE 20
+#define MAX_TEMPERATURE 70
 
 
 
@@ -36,6 +35,9 @@ float cubicInterpolate(float p[], float x);
 float bicubicInterpolate(float p[], float x, float y);
 void interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float *dest,
                         uint8_t dest_rows, uint8_t dest_cols);
+bool generate_bmp(float *src, fs::FS &file, const char *filename);
+void deleteFile(fs::FS &fs, const char *path);
+void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 
 
 /********************************** Structures ************************************/
