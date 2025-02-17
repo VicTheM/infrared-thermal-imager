@@ -1,4 +1,6 @@
 #include "thermal_imager_header.h"
+#include <WebServer.h>
+#include <WiFi.h>
 
 /******************************** Variable declarations ***********************************/
 GridEYE grideye;
@@ -8,7 +10,6 @@ unsigned int counter;
 float pixels[64];
 float singlePixelValue;
 float interpolatedPixels[576];
-
 
 /******************************* Setup code: Entry point to run once ***********************/
 void setup() {
@@ -23,6 +24,41 @@ void setup() {
   grideye.begin();
   delay(500);
 
+   // ----- check partitions for finding the filesystem type -----
+  esp_partition_iterator_t i;
+
+  i = esp_partition_find(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, nullptr);
+  if (i) {
+    Serial.print("SPIFFS partition found.");
+    fsys = &LittleFS;
+
+  } else {
+    Serial.print("no partition found.");
+  }
+  esp_partition_iterator_release(i);
+
+  // mount and format as needed
+  Serial.print("Mounting the filesystem...\n");
+  if (!fsys) {
+    Serial.print("need to change the board configuration to include a partition for files.\n");
+    delay(30000);
+  } else if ((fsys == (fs::FS *)&LittleFS) && (!LittleFS.begin())) {
+    Serial.print("could not mount the filesystem...\n");
+    delay(2000);
+    Serial.print("formatting LittleFS...\n");
+    LittleFS.format();
+    delay(2000);
+    Serial.print("restarting...\n");
+    delay(2000);
+    ESP.restart();
+  }
+
+  Serial.setDebugOutput(true);
+
+  WiFi.setHostname(HOSTNAME);
+  WiFi.mode(WIFI_STA);
+
+  // enable ETAG header in webserver results (used by serveStatic handler
   attachInterrupt(captureButton.PIN, isr, FALLING);
   digitalWrite(WEB_SERVER_LED_PIN, LOW);
 }
@@ -51,6 +87,7 @@ void loop() {
   // CAPTURE IMAGE
   if (captureButton.pressed && serverSwitch.pressed == false) {
     captureButton.pressed = false;
+    generate_bmp(interpolatedPixels, LittleFS, "/thermal.bmp");
     printThermalGrid(interpolatedPixels, 24, 24);
   }
 
@@ -60,6 +97,7 @@ void loop() {
     if (currentTime - serverSwitch.lastPressTime > SERVER_DELAY && serverSwitch.pressed == false) {
       serverSwitch.pressed = true;
       Serial.println("Turning web server on");
+      startServer();
       digitalWrite(WEB_SERVER_LED_PIN, HIGH);
       serverSwitch.lastPressTime = currentTime;
     }
@@ -70,9 +108,13 @@ void loop() {
       captureButton.pressed = false; // they might have pressed it while the server was on
       serverSwitch.pressed = false;
       Serial.println("Turning web server off");
+      stopServer();
       digitalWrite(WEB_SERVER_LED_PIN, LOW);
       serverSwitch.lastPressTime = currentTime;
     }
+  }
+  if (serverSwitch.pressed == true) {
+    handleClient();
   }
 }
 

@@ -175,3 +175,65 @@ void get_adjacents_2d(float *src, float *dest, uint8_t rows, uint8_t cols,
     }
   }
 }
+
+
+bool generate_bmp(float *src, fs::FS &file, const char *filename) {
+    // BMP Header with little-endian width & height
+    uint8_t bmpHeader[54] = {
+        0x42, 0x4D, 0, 0, 0, 0,  // File size (to be calculated)
+        0x00, 0x00, 0x00, 0x00,  // Reserved
+        0x36, 0x00, 0x00, 0x00,  // Offset to pixel data (54 bytes)
+
+        // DIB Header (40 bytes)
+        0x28, 0x00, 0x00, 0x00,  // Header size
+        IMG_WIDTH & 0xFF, (IMG_WIDTH >> 8) & 0xFF, 0x00, 0x00,  // Width (little-endian)
+        IMG_HEIGHT & 0xFF, (IMG_HEIGHT >> 8) & 0xFF, 0x00, 0x00,  // Height (little-endian)
+        0x01, 0x00,              // Planes (1)
+        0x18, 0x00,              // Bits per pixel (24-bit)
+        0x00, 0x00, 0x00, 0x00,  // Compression (None)
+        0, 0, 0, 0,              // Image size (not needed for uncompressed BMP)
+        0x13, 0x0B, 0x00, 0x00,  // Horizontal resolution (2835 pixels/m)
+        0x13, 0x0B, 0x00, 0x00,  // Vertical resolution (2835 pixels/m)
+        0x00, 0x00, 0x00, 0x00,  // Colors in palette (0 = all)
+        0x00, 0x00, 0x00, 0x00   // Important colors (0 = all)
+    };
+
+    // Calculate file size: header + pixel data
+    int rowSize = (IMG_WIDTH * 3 + 3) & ~3;  // Each row must be padded to 4 bytes
+    int fileSize = 54 + (rowSize * IMG_HEIGHT);
+    
+    // Update file size in header
+    bmpHeader[2] = (uint8_t)(fileSize & 0xFF);
+    bmpHeader[3] = (uint8_t)((fileSize >> 8) & 0xFF);
+    bmpHeader[4] = (uint8_t)((fileSize >> 16) & 0xFF);
+    bmpHeader[5] = (uint8_t)((fileSize >> 24) & 0xFF);
+
+    // Open file for writing
+    File fs = file.open(filename, FILE_WRITE);
+    if (!fs) {
+        Serial.println("Failed to create file");
+        return false;
+    }
+
+    // Write BMP header
+    fs.write(bmpHeader, 54);
+
+    // Write pixel data (bottom-up order)
+    uint8_t padding[3] = {0, 0, 0};  // BMP row padding
+    for (int y = IMG_HEIGHT - 1; y >= 0; y--) {  
+        for (int x = 0; x < IMG_WIDTH; x++) {
+            float temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);  // Get temperature data
+            uint8_t grayscale = map(temp, 28, 40, 0, 255);  // Normalize to 0-255
+            
+            fs.write(grayscale);  // Blue
+            fs.write(grayscale);  // Green
+            fs.write(grayscale);  // Red
+        }
+        // Write padding if necessary
+        fs.write(padding, rowSize - (IMG_WIDTH * 3));
+    }
+
+    fs.close();
+    Serial.println("BMP file created successfully");
+    return true;
+}
