@@ -2,13 +2,10 @@
 #define _THERMAL_CAMERA_SERVER_
 
 #include <Arduino.h>
-// #include <NetworkServer.h>
-#include "esp_partition.h"  // to check existing data partitions in Flash memory
-#include <FS.h>        // File System for Web Server Files
-#include <LittleFS.h>  // Use LittleFSThis file system is used.
-#include <FFat.h>      // or.. FAT
+#include "esp_partition.h"
+#include <FS.h>
+#include <LittleFS.h>
 
-// mark parameters not used in example
 #define UNUSED __attribute__((unused))
 #define TRACE(...) Serial.printf(__VA_ARGS__)
 #define HOSTNAME "webserver"

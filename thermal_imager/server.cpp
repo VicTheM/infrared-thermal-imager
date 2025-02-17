@@ -7,16 +7,8 @@
 const char *ssid = "Electrify";
 const char *passPhrase = "Victory111";
 
-// TRACE output simplified, can be deactivated here
-// #define TRACE(...) Serial.printf(__VA_ARGS__)
-
-// // name of the server. You reach it using http://webserver
-// #define HOSTNAME "webserver"
-
 // need a WebServer for http access on port 80.
 WebServer server(80);
-
-// The file system in use...
 fs::FS *fsys = nullptr;
 bool serverRunning = false;
 
@@ -24,9 +16,6 @@ bool serverRunning = false;
 #define CUSTOM_ETAG_CALC
 
 // ===== Simple functions used to answer simple GET requests =====
-
-// This function is called when the WebServer was requested without giving a filename.
-// This will redirect to the file index.htm when it is existing otherwise to the built-in $upload.htm page
 void handleRedirect() {
   TRACE("Redirect...\n");
   String url = "/index.htm";
@@ -38,10 +27,10 @@ void handleRedirect() {
 
   server.sendHeader("Location", url, true);
   server.send(302);
-}  // handleRedirect()
+}
 
-// This function is called when the WebServer was requested to list all existing files in the filesystem.
-// a JSON array with file information is returned.
+
+
 void handleListFiles() {
   File dir = fsys->open("/", "r");
   String result;
@@ -74,15 +63,8 @@ void handleSysInfo() {
   result += "  \"Chip Revision\": " + String(ESP.getChipRevision()) + ",\n";
   result += "  \"flashSize\": " + String(ESP.getFlashChipSize()) + ",\n";
   result += "  \"freeHeap\": " + String(ESP.getFreeHeap()) + ",\n";
-
-  if (fsys == (fs::FS *)&FFat) {
-    result += "  \"fsTotalBytes\": " + String(FFat.totalBytes()) + ",\n";
-    result += "  \"fsUsedBytes\": " + String(FFat.usedBytes()) + ",\n";
-  } else {
-    result += "  \"fsTotalBytes\": " + String(LittleFS.totalBytes()) + ",\n";
-    result += "  \"fsUsedBytes\": " + String(LittleFS.usedBytes()) + ",\n";
-  }
-
+  result += "  \"fsTotalBytes\": " + String(LittleFS.totalBytes()) + ",\n";
+  result += "  \"fsUsedBytes\": " + String(LittleFS.usedBytes()) + ",\n";
   result += "}";
 
   server.sendHeader("Cache-Control", "no-cache");

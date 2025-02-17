@@ -178,30 +178,28 @@ void get_adjacents_2d(float *src, float *dest, uint8_t rows, uint8_t cols,
 
 
 bool generate_bmp(float *src, fs::FS &file, const char *filename) {
-    // BMP Header with little-endian width & height
     uint8_t bmpHeader[54] = {
         0x42, 0x4D, 0, 0, 0, 0,  // File size (to be calculated)
         0x00, 0x00, 0x00, 0x00,  // Reserved
-        0x36, 0x00, 0x00, 0x00,  // Offset to pixel data (54 bytes)
+        0x36, 0x04, 0x00, 0x00,  // Offset to pixel data (54 + 1024 bytes for palette)
 
-        // DIB Header (40 bytes)
+        // DIB Header
         0x28, 0x00, 0x00, 0x00,  // Header size
-        IMG_WIDTH & 0xFF, (IMG_WIDTH >> 8) & 0xFF, 0x00, 0x00,  // Width (little-endian)
-        IMG_HEIGHT & 0xFF, (IMG_HEIGHT >> 8) & 0xFF, 0x00, 0x00,  // Height (little-endian)
+        IMG_WIDTH & 0xFF, (IMG_WIDTH >> 8) & 0xFF, 0x00, 0x00,  // Width
+        IMG_HEIGHT & 0xFF, (IMG_HEIGHT >> 8) & 0xFF, 0x00, 0x00,  // Height
         0x01, 0x00,              // Planes (1)
-        0x18, 0x00,              // Bits per pixel (24-bit)
+        0x08, 0x00,              // Bits per pixel (8-bit)
         0x00, 0x00, 0x00, 0x00,  // Compression (None)
         0, 0, 0, 0,              // Image size (not needed for uncompressed BMP)
-        0x13, 0x0B, 0x00, 0x00,  // Horizontal resolution (2835 pixels/m)
-        0x13, 0x0B, 0x00, 0x00,  // Vertical resolution (2835 pixels/m)
-        0x00, 0x00, 0x00, 0x00,  // Colors in palette (0 = all)
-        0x00, 0x00, 0x00, 0x00   // Important colors (0 = all)
+        0x13, 0x0B, 0x00, 0x00,  // Horizontal resolution
+        0x13, 0x0B, 0x00, 0x00,  // Vertical resolution
+        0x00, 0x01, 0x00, 0x00,  // Colors in palette (256)
+        0x00, 0x00, 0x00, 0x00   // Important colors (0)
     };
 
-    // Calculate file size: header + pixel data
-    int rowSize = (IMG_WIDTH * 3 + 3) & ~3;  // Each row must be padded to 4 bytes
-    int fileSize = 54 + (rowSize * IMG_HEIGHT);
-    
+    int rowSize = (IMG_WIDTH + 3) & ~3;  // Ensure row size is multiple of 4
+    int fileSize = 54 + 1024 + (rowSize * IMG_HEIGHT);
+
     // Update file size in header
     bmpHeader[2] = (uint8_t)(fileSize & 0xFF);
     bmpHeader[3] = (uint8_t)((fileSize >> 8) & 0xFF);
@@ -218,22 +216,44 @@ bool generate_bmp(float *src, fs::FS &file, const char *filename) {
     // Write BMP header
     fs.write(bmpHeader, 54);
 
-    // Write pixel data (bottom-up order)
-    uint8_t padding[3] = {0, 0, 0};  // BMP row padding
+    // --- Custom Color Palette ---
+    for (int i = 0; i < 256; i++) {
+        uint8_t r, g, b;
+
+        if (i < 85) {  // Blue to Cyan transition
+            b = 255;
+            g = i * 3;
+            r = 0;
+        } else if (i < 170) {  // Cyan to Yellow transition
+            b = 255 - (i - 85) * 3;
+            g = 255;
+            r = (i - 85) * 3;
+        } else {  // Yellow to Red transition
+            b = 0;
+            g = 255 - (i - 170) * 3;
+            r = 255;
+        }
+
+        fs.write(b);  // Blue
+        fs.write(g);  // Green
+        fs.write(r);  // Red
+        fs.write(0);  // Reserved (must be 0)
+    }
+
+    // --- Write Pixel Data (Bottom-Up Order) ---
+    uint8_t padding[3] = {0, 0, 0};  
     for (int y = IMG_HEIGHT - 1; y >= 0; y--) {  
         for (int x = 0; x < IMG_WIDTH; x++) {
-            float temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);  // Get temperature data
-            uint8_t grayscale = map(temp, 28, 40, 0, 255);  // Normalize to 0-255
-            
-            fs.write(grayscale);  // Blue
-            fs.write(grayscale);  // Green
-            fs.write(grayscale);  // Red
+            float temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);
+            temp = (temp > MAX_TEMPERATURE) ? MAX_TEMPERATURE : (temp < MIN_TEMPERATURE) ? MIN_TEMPERATURE : temp;
+            uint8_t pixelIndex = map(temp, MIN_TEMPERATURE, MAX_TEMPERATURE, 0, 255);  // MIN = blue, MAX = red
+
+            fs.write(pixelIndex);
         }
-        // Write padding if necessary
-        fs.write(padding, rowSize - (IMG_WIDTH * 3));
+        fs.write(padding, rowSize - IMG_WIDTH);
     }
 
     fs.close();
-    Serial.println("BMP file created successfully");
+    Serial.println("8-bit BMP file created with color palette!");
     return true;
 }

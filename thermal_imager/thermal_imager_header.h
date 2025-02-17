@@ -1,10 +1,3 @@
-/**
-
-  Header file, contains global variables, constants, structures,
-  function declarations and other global objects
-
-**/
-
 #ifndef _THERMAL_CAMERA_HEADER_
 #define _THERMAL_CAMERA_HEADER_
 #include "server.h"                                    
@@ -26,8 +19,8 @@
 #define THERMAL_SENSOR_RESOLUTION 64                  // Total number of pixels in sensor used
 #define IMG_WIDTH  24
 #define IMG_HEIGHT 24
-#define MIN_TEMPERATURE 24
-#define MAX_TEMPERATURE 40
+#define MIN_TEMPERATURE 20
+#define MAX_TEMPERATURE 70
 
 
 
