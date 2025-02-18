@@ -206,6 +206,8 @@ bool generate_bmp(float *src, fs::FS &file, const char *filename) {
     bmpHeader[4] = (uint8_t)((fileSize >> 16) & 0xFF);
     bmpHeader[5] = (uint8_t)((fileSize >> 24) & 0xFF);
 
+    Serial.printf("File name: %s\n", filename);
+
     // Open file for writing
     File fs = file.open(filename, FILE_WRITE);
     if (!fs) {
@@ -256,4 +258,37 @@ bool generate_bmp(float *src, fs::FS &file, const char *filename) {
     fs.close();
     Serial.println("8-bit BMP file created with color palette!");
     return true;
+}
+
+int getFileID() {
+  Preferences mem;
+  bool mem_active;
+  int fileID = 0;
+
+  mem_active = mem.begin(PREFERENCE_NAMESPACE, false);
+
+  // Initialize for first call
+  if (mem_active && !mem.isKey(PREFERENCE_KEY)) {
+    mem.putInt(PREFERENCE_KEY, 2);
+    mem.end();
+    return(1);
+  }
+
+  if (mem_active) {
+    fileID = mem.getInt(PREFERENCE_KEY);
+    if (fileID < 300) {
+      mem.putInt(PREFERENCE_KEY, fileID + 1);
+      mem.end();
+    }
+    else {
+      mem.putInt(PREFERENCE_KEY, 1);
+    }
+    return(fileID);
+    }
+  else {
+    fileID = 301; // failed to read counter from memory
+    return(fileID);
+  }
+
+  return fileID;
 }

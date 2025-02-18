@@ -5,6 +5,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <Wire.h> 
+#include <Preferences.h>
 
 /********************************* Pin definitions *********************************/
 #define CAPTURE_PIN 14                                // Capture image button
@@ -21,6 +22,8 @@
 #define IMG_HEIGHT 24
 #define MIN_TEMPERATURE 20
 #define MAX_TEMPERATURE 70
+#define PREFERENCE_NAMESPACE "file_id"
+#define PREFERENCE_KEY "idx"
 
 
 
@@ -35,6 +38,7 @@ float cubicInterpolate(float p[], float x);
 float bicubicInterpolate(float p[], float x, float y);
 void interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float *dest,
                         uint8_t dest_rows, uint8_t dest_cols);
+int getFileID();
 bool generate_bmp(float *src, fs::FS &file, const char *filename);
 void deleteFile(fs::FS &fs, const char *path);
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels);

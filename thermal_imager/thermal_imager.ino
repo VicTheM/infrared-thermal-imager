@@ -10,6 +10,8 @@ unsigned int counter;
 float pixels[64];
 float singlePixelValue;
 float interpolatedPixels[576];
+String filename;
+int fileID;
 
 /******************************* Setup code: Entry point to run once ***********************/
 void setup() {
@@ -35,9 +37,10 @@ void setup() {
 
   // mount and format as needed
   if (!fsys) {
-    ; // bad
+    Serial.println("Fs bad"); // bad
   } else if ((fsys == (fs::FS *)&LittleFS) && (!LittleFS.begin())) {
     LittleFS.format();
+    Serial.println("Restarting esp32");
     ESP.restart();
   }
 
@@ -74,7 +77,10 @@ void loop() {
   // CAPTURE IMAGE
   if (captureButton.pressed && serverSwitch.pressed == false) {
     captureButton.pressed = false;
-    generate_bmp(interpolatedPixels, LittleFS, "/thermal1.bmp");
+
+    fileID = getFileID();
+    filename = "/img_" + String(fileID) + ".bmp";
+    generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
     printThermalGrid(interpolatedPixels, 24, 24);
   }
 
