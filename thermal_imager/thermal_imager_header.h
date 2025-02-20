@@ -58,7 +58,7 @@ float bicubicInterpolate(float p[], float x, float y);
 void interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols, float *dest,
                         uint8_t dest_rows, uint8_t dest_cols);
 int getFileID();
-bool generate_bmp(uint16_t *src, fs::FS &file, const char *filename);
+bool generate_bmp(float *src, fs::FS &file, const char *filename);
 void deleteFile(fs::FS &fs, const char *path);
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 float getInterpolatedTemperature(float x, float y);

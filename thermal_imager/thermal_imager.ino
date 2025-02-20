@@ -97,7 +97,7 @@ void loop() {
 
     fileID = getFileID();
     filename = "/img_" + String(fileID) + ".bmp";
-    generate_bmp(thermalBitmap, LittleFS, filename.c_str());
+    generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
     printThermalGrid(interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
   }
 
@@ -199,7 +199,7 @@ void printThermalGrid(float *p, uint8_t rows, uint8_t cols) {
 }
 
 
-bool generate_bmp(uint16_t *src, fs::FS &file, const char *filename) {
+bool generate_bmp(float *src, fs::FS &file, const char *filename) {
     uint8_t bmpHeader[54] = {
         0x42, 0x4D, 0, 0, 0, 0,  // File size (to be calculated)
         0x00, 0x00, 0x00, 0x00,  // Reserved
@@ -239,22 +239,13 @@ bool generate_bmp(uint16_t *src, fs::FS &file, const char *filename) {
     fs.write(bmpHeader, 54);
 
     // --- Custom Color Palette ---
-    for (int i = 0; i < 256; i++) {
+    for (int t = 0; t < 256; t++) {
         uint8_t r, g, b;
 
-        if (i < 85) {  // Blue to Cyan transition
-            b = 255;
-            g = i * 3;
-            r = 0;
-        } else if (i < 170) {  // Cyan to Yellow transition
-            b = 255 - (i - 85) * 3;
-            g = 255;
-            r = (i - 85) * 3;
-        } else {  // Yellow to Red transition
-            b = 0;
-            g = 255 - (i - 170) * 3;
-            r = 255;
-        }
+        if (t < 64) { r = 0; g = t * 4; b = 255; } // Blue → Cyan
+        else if (t < 128) { r = 0; g = 255; b = 255 - (t - 64) * 4; } // Cyan → Green
+        else if (t < 192) { r = (t - 128) * 4; g = 255; b = 0; } // Green → Yellow
+        else { r = 255; g = 255 - (t - 192) * 4; b = 0; } // Yellow → Red
 
         fs.write(b);  // Blue
         fs.write(g);  // Green
@@ -266,7 +257,7 @@ bool generate_bmp(uint16_t *src, fs::FS &file, const char *filename) {
     uint8_t padding[3] = {0, 0, 0};  
     for (int y = IMG_HEIGHT - 1; y >= 0; y--) {  
         for (int x = 0; x < IMG_WIDTH; x++) {
-            uint16_t temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);
+            float temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);
             temp = (temp > MAXTEMP) ? MAXTEMP : (temp < MINTEMP) ? MINTEMP : temp;
             uint8_t pixelIndex = map(temp, MINTEMP, MAXTEMP, 0, 255);  // MIN = blue, MAX = red
 
