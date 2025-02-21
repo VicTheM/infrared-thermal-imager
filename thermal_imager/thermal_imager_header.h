@@ -8,15 +8,16 @@
 #include <Wire.h> 
 #include <Preferences.h>
 #include "SPI.h"
-#include "lib.h"
+#include "TFT_22_ILI9225.h"
+#include "math.h"
 
 /********************************* Pin definitions *********************************/
-#define AMG8833_SCL_PIN 22                            // I2C serial clock pin for the thermal sensor
-#define AMG8833_SDA_PIN 21                            // I2C serial data pin for the thermal sensor
+#define AMG8833_SCL_PIN 22               // I2C serial clock pin for the thermal sensor
+#define AMG8833_SDA_PIN 21               // I2C serial data pin for the thermal sensor
 
-#define CAPTURE_PIN 19                                // Capture image button
-#define WEB_SERVER_PIN 18                             // Button to enable wireless connection
-#define WEB_SERVER_LED_PIN 12                         // Web server led indicator
+#define CAPTURE_PIN 19                   // Capture image button
+#define WEB_SERVER_PIN 18                // Button to enable wireless connection
+#define WEB_SERVER_LED_PIN 12            // Web server led indicator
 
 #define TFT_RST 26  // IO 26
 #define TFT_RS  25  // IO 25
@@ -24,15 +25,15 @@
 #define TFT_SDI 13  // HSPI-MOSI
 #define TFT_CS  15  // HSPI-SS0
 #define TFT_LED 0 
-#define TFT_BRIGHTNESS 200
 
 /******************************** Other constants ***********************************/
-#define DEBOUNCE_DELAY 2000                           // How fast multiple images can be captured (ie once every 2000 millisec)
-#define SERVER_DELAY 3000                             // Same as DEBOUNCE_DELAY, but for the web server
-#define THERMAL_SENSOR_RESOLUTION 64                  // Total number of pixels in sensor used
+#define DEBOUNCE_DELAY 2000                // How fast multiple images can be captured (ie once every 2000 millisec)
+#define SERVER_DELAY 3000                  // Same as DEBOUNCE_DELAY, but for the web server
+#define THERMAL_SENSOR_RESOLUTION 64       // Total number of pixels in sensor used
 #define PREFERENCE_NAMESPACE "file_id"
 #define PREFERENCE_KEY "idx"
 
+#define TFT_BRIGHTNESS 200
 #define NUM_COLOR 26
 #define MAXTEMP 36
 #define MINTEMP 19
@@ -44,7 +45,26 @@
 #define SENSOR_HEIGHT 24
 #define AMG8833RES_X 8
 #define AMG8833RES_Y 8
+#define ROTATE_ANGLE 10
 
+
+/*********************************** Structures ************************************/
+/**
+ * Button: Used to model a typical 2-way button attached to the esp
+ * @PIN: The pin where one leg of button is attached (second leg is gnd or vcc)
+ * @pressed: Captures a click or a toggle
+ * @lastPressTime: Holds timestamp in order to curtail switch debouncing
+ */
+struct Button {
+  const uint8_t PIN;
+  bool pressed;
+  unsigned long lastPressTime;
+};
+
+struct _point {
+    int16_t x;
+    int16_t y;
+};
 
 
 /********************************** Function declarations *************************/
@@ -67,26 +87,13 @@ float getInterpolatedTemperature(float x, float y);
 uint16_t getColorFromTemperature(float temp);
 void generateThermalImage();
 void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols);
-
 void drawpixels(float *p, uint8_t rows, uint8_t cols, uint8_t scaleX, uint8_t scaleY);
 bool createTemperatureBMP(uint16_t* tempArray, const char* filename);
 void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b);
 void mapIntoRGB565Color(uint16_t *arr, int len);
 void interpolate1DArray(float* sensorData, uint16_t* imgData);
-
-
-/********************************** Structures ************************************/
-
-/**
- * Button: Used to model a typical 2-way button attached to the esp
- * @PIN: The pin where one leg of button is attached (second leg is gnd or vcc)
- * @pressed: Captures a click or a toggle
- * @lastPressTime: Holds timestamp in order to curtail switch debouncing
- */
-struct Button {
-  const uint8_t PIN;
-  bool pressed;
-  unsigned long lastPressTime;
-};
+_point rotatePoint( _point c, float angle, _point p );
+void rotateTriangle( _point &a, _point &b, _point &c, _point r, int16_t deg );
+_point getCoordCentroid( _point a, _point b, _point c );
 
 #endif // _THERMAL_CAMERA_HEADER_

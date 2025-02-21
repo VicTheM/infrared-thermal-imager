@@ -17,12 +17,12 @@ bool serverRunning = false;
 
 // ===== Simple functions used to answer simple GET requests =====
 void handleRedirect() {
-  TRACE("Redirect...\n");
+  // TRACE("Redirect...\n");
   String url = "/index.htm";
 
   if (!fsys->exists(url)) {
     url = "/$upload.htm";
-    TRACE("Uri Changed\n");
+    // TRACE("Uri Changed\n");
   }
 
   server.sendHeader("Location", url, true);
@@ -109,7 +109,7 @@ public:
 
     } else if (requestMethod == HTTP_DELETE) {
       if (fsys->exists(fName)) {
-        TRACE("DELETE %s\n", fName.c_str());
+        // TRACE("DELETE %s\n", fName.c_str());
         fsys->remove(fName);
       }
     }  // if
@@ -129,27 +129,14 @@ protected:
 
 void startServer() {
     if (!serverRunning) {
-      //Serial.println("Starting server...");
-      if (strlen(ssid) == 0) {
-        WiFi.begin();
-      } else {
-        WiFi.begin(ssid, passPhrase);
-      }
-
-      TRACE("Connect to WiFi...\n");
-      while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        TRACE(".");
-      }
-      TRACE("connected.\n");
       configTzTime(TIMEZONE, "pool.ntp.org");
 
-      TRACE("Register redirect...\n");
+      // TRACE("Register redirect...\n");
 
       // register a redirect handler when only domain name is given.
       server.on("/", HTTP_GET, handleRedirect);
 
-      TRACE("Register service handlers...\n");
+      // TRACE("Register service handlers...\n");
 
             // serve a built-in htm page
       server.on("/$upload.htm", []() {
@@ -163,7 +150,7 @@ void startServer() {
       server.on("/api/list", HTTP_GET, handleListFiles);
       server.on("/api/sysinfo", HTTP_GET, handleSysInfo);
 
-      TRACE("Register file system handlers...\n");
+      // TRACE("Register file system handlers...\n");
 
       // UPLOAD and DELETE of files in the file system using a request handler.
       server.addHandler(new FileServerHandler());
@@ -187,17 +174,14 @@ void startServer() {
       // serve all static files
       server.serveStatic("/", *fsys, "/");
 
-      TRACE("Register default (not found) answer...\n");
+      // TRACE("Register default (not found) answer...\n");
 
       // handle cases when file is not found
       server.onNotFound([]() {
         // standard not found in browser.
         server.send(404, "text/html", FPSTR(statsPage));
       });
-
-      server.begin();
-
-      TRACE("open <http://%s> or <http://%s>\n", WiFi.getHostname(), WiFi.localIP().toString().c_str());
+      // TRACE("open <http://%s> or <http://%s>\n", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
       server.begin();
       serverRunning = true;
