@@ -155,6 +155,9 @@ void startServer() {
       server.on("/$upload.htm", []() {
         server.send(200, "text/html", FPSTR(uploadContent));
       });
+      server.on("/stats/full", []() {
+        server.send(200, "text/html", FPSTR(statsPage));
+      });
 
           // register some REST services
       server.on("/api/list", HTTP_GET, handleListFiles);
@@ -189,7 +192,7 @@ void startServer() {
       // handle cases when file is not found
       server.onNotFound([]() {
         // standard not found in browser.
-        server.send(404, "text/html", FPSTR(notFoundContent));
+        server.send(404, "text/html", FPSTR(statsPage));
       });
 
       server.begin();
