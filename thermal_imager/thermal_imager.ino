@@ -12,6 +12,7 @@ unsigned int counter;
 String filename;
 int fileID;
 uint16_t* thermalBitmap;
+// float* thermalBitmap;
 
 uint16_t x, y;
 boolean flag = false;
@@ -26,6 +27,7 @@ void setup() {
   tft.begin(hspi);
   Serial.begin(115200);
   thermalBitmap = new (std::nothrow) uint16_t[IMG_WIDTH * IMG_HEIGHT];
+  // thermalBitmap = new (std::nothrow) float[IMG_WIDTH * IMG_HEIGHT];
   if (!thermalBitmap) {
     Serial.println("Failed to allocate array");
   }
@@ -86,7 +88,7 @@ void loop() {
     }
     interpolate_image(pixels, 8, 8, interpolatedPixels, 24, 24);
     // printThermalGrid(interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
-    // generateThermalImage();
+    generateThermalImage();
     // tft.drawBitmap(0, 0, thermalBitmap, IMG_WIDTH, IMG_HEIGHT);
     drawThermalImage();
   }
@@ -98,7 +100,7 @@ void loop() {
     fileID = getFileID();
     filename = "/img_" + String(fileID) + ".bmp";
     // generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
-    if (createTemperatureBMP(interpolatedPixels, filename.c_str())) {
+    if (createTemperatureBMP(thermalBitmap, filename.c_str())) {
         Serial.println("BMP file created successfully");
     } else {
         Serial.println("Failed to create BMP file");
@@ -359,7 +361,8 @@ void generateThermalImage() {
             float sensorY = y * scaleY;
 
             float temp = getInterpolatedTemperature(sensorX, sensorY);
-            thermalBitmap[y * IMG_WIDTH + x] = getColorFromTemperature(temp);
+            // thermalBitmap[y * IMG_WIDTH + x] = getColorFromTemperature(temp);
+            thermalBitmap[y * IMG_WIDTH + x] = (uint16_t)temp;
         }
     }
 }
@@ -508,7 +511,7 @@ void drawThermalImage() {
 }
 
 // Function to interpolate between blue and red
-void getTemperatureColor(float temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b) {
+void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b) {
     // float ratio = (temp - minTemp) / (maxTemp - minTemp);
     // ratio = constrain(ratio, 0.0, 1.0);
     
@@ -524,10 +527,9 @@ void getTemperatureColor(float temp, float minTemp, float maxTemp, uint8_t& r, u
     // Blue (0,0,255) to Red (255,0,0) through purple
 }
 
-bool createTemperatureBMP(float *tempArray, const char* filename) {
-    const int WIDTH = 240;
-    const int HEIGHT = 240;
-    const int SCALE = 10;  // 24x24 scaled to 240x240 (10x scaling)
+bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
+    const int WIDTH = 176;
+    const int HEIGHT = 220;
     const float MIN_TEMP = 19.0;
     const float MAX_TEMP = 36.0;
     
@@ -543,8 +545,8 @@ bool createTemperatureBMP(float *tempArray, const char* filename) {
 
         // DIB Header
         0x28, 0x00, 0x00, 0x00,  // Header size (40 bytes)
-        0xF0, 0x00, 0x00, 0x00,  // Width: 240 pixels
-        0xF0, 0x00, 0x00, 0x00,  // Height: 240 pixels
+        0xB0, 0x00, 0x00, 0x00,  // Width: 176 pixels (0xB0 in hex)
+        0xDC, 0x00, 0x00, 0x00,  // Height: 220 pixels (0xDC in hex)
         0x01, 0x00,              // Planes (1)
         0x18, 0x00,              // Bits per pixel (24-bit)
         0x00, 0x00, 0x00, 0x00,  // Compression (None)
@@ -580,26 +582,24 @@ bool createTemperatureBMP(float *tempArray, const char* filename) {
 
     // Generate image data (bottom-up as per BMP spec)
     for (int y = HEIGHT - 1; y >= 0; y--) {
-        int srcY = y / SCALE;  // Map to original 24x24 grid
         for (int x = 0; x < WIDTH; x++) {
-            int srcX = x / SCALE;  // Map to original 24x24 grid
-            float temp = tempArray[srcY * 24 + srcX];
-            
+            uint16_t temp = tempArray[y * WIDTH + x];
+
             // Get color for this temperature
             uint8_t r, g, b;
             getTemperatureColor(temp, MIN_TEMP, MAX_TEMP, r, g, b);
-            
+
             // Write BGR (BMP format uses BGR order)
             rowBuffer[x * 3] = b;
             rowBuffer[x * 3 + 1] = g;
             rowBuffer[x * 3 + 2] = r;
         }
-        
+
         // Pad row to 4-byte boundary
         for (int i = WIDTH * 3; i < rowSize; i++) {
             rowBuffer[i] = 0;
         }
-        
+
         // Write row to file
         file.write(rowBuffer, rowSize);
     }
