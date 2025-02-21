@@ -71,7 +71,7 @@ void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols);
 void drawpixels(float *p, uint8_t rows, uint8_t cols, uint8_t scaleX, uint8_t scaleY);
 bool createTemperatureBMP(uint16_t* tempArray, const char* filename);
 void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b);
-void mapIntoRGB565Color(uint16_t *arr, int len);
+void mapIntoRGB565Color(uint16_t *arr, int len, uint16_t *arr2);
 void interpolate1DArray(float* sensorData, uint16_t* imgData);
 
 

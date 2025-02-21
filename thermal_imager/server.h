@@ -163,108 +163,107 @@ body {
 // used for $upload.htm
 static const char statsPage[] PROGMEM = R"==(
 <!DOCTYPE html>
-<html> )==";
-// <head>
-// <title>System Info</title>
-// <style>
-// body {
-//   font-family: sans-serif;
-// }
-// .stats-table {
-//   width: 50%;
-//   border-collapse: collapse;
-//   margin-top: 20px;
-// }
-// .stats-table th, .stats-table td {
-//   border: 1px solid #ddd;
-//   padding: 8px;
-//   text-align: left;
-// }
-// .stats-table th {
-//   background-color: #f2f2f2;
-// }
-// </style>
-// </head>
-// <body>
+<head>
+<title>System Info</title>
+<style>
+body {
+  font-family: sans-serif;
+}
+.stats-table {
+  width: 50%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+.stats-table th, .stats-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.stats-table th {
+  background-color: #f2f2f2;
+}
+</style>
+</head>
+<body>
 
-// <h1>ESP32 System Information</h1>
+<h1>ESP32 System Information</h1>
 
-// <table class="stats-table">
-//   <tr><th>Statistic</th><th>Value</th></tr>
-//   <tr><td>Chip Model</td><td id="chip-model">Loading...</td></tr>
-//   <tr><td>Chip Cores</td><td id="chip-cores">Loading...</td></tr>
-//   <tr><td>Chip Revision</td><td id="chip-revision">Loading...</td></tr>
-//   <tr><td>Flash Size</td><td id="flash-size">Loading...</td></tr>
-//   <tr><td>Free Heap</td><td id="free-heap">Loading...</td></tr>
-//   <tr><td>FS Total Bytes</td><td id="fs-total">Loading...</td></tr>
-//   <tr><td>FS Used Bytes</td><td id="fs-used">Loading...</td></tr>
-//   <tr><td>Number of Files</td><td id="file-count">Loading...</td></tr>
-//   <tr><td>Total File Size</td><td id="total-file-size">Loading...</td></tr>
-// </table>
+<table class="stats-table">
+  <tr><th>Statistic</th><th>Value</th></tr>
+  <tr><td>Chip Model</td><td id="chip-model">Loading...</td></tr>
+  <tr><td>Chip Cores</td><td id="chip-cores">Loading...</td></tr>
+  <tr><td>Chip Revision</td><td id="chip-revision">Loading...</td></tr>
+  <tr><td>Flash Size</td><td id="flash-size">Loading...</td></tr>
+  <tr><td>Free Heap</td><td id="free-heap">Loading...</td></tr>
+  <tr><td>FS Total Bytes</td><td id="fs-total">Loading...</td></tr>
+  <tr><td>FS Used Bytes</td><td id="fs-used">Loading...</td></tr>
+  <tr><td>Number of Files</td><td id="file-count">Loading...</td></tr>
+  <tr><td>Total File Size</td><td id="total-file-size">Loading...</td></tr>
+</table>
 
-// <script>
-//   const chipModel = document.getElementById('chip-model');
-//   const chipCores = document.getElementById('chip-cores');
-//   const chipRevision = document.getElementById('chip-revision');
-//   const flashSize = document.getElementById('flash-size');
-//   const freeHeap = document.getElementById('free-heap');
-//   const fsTotal = document.getElementById('fs-total');
-//   const fsUsed = document.getElementById('fs-used');
-//   const fileCount = document.getElementById('file-count');
-//   const totalFileSize = document.getElementById('total-file-size');
+<script>
+  const chipModel = document.getElementById('chip-model');
+  const chipCores = document.getElementById('chip-cores');
+  const chipRevision = document.getElementById('chip-revision');
+  const flashSize = document.getElementById('flash-size');
+  const freeHeap = document.getElementById('free-heap');
+  const fsTotal = document.getElementById('fs-total');
+  const fsUsed = document.getElementById('fs-used');
+  const fileCount = document.getElementById('file-count');
+  const totalFileSize = document.getElementById('total-file-size');
 
-//   fetch('/api/sysinfo')
-//     .then(response => {
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-//       return response.json();
-//     })
-//     .then(data => {
-//       chipModel.textContent = data["Chip Model"];
-//       chipCores.textContent = data["Chip Cores"];
-//       chipRevision.textContent = data["Chip Revision"];
-//       flashSize.textContent = data["flashSize"];
-//       freeHeap.textContent = data["freeHeap"];
-//       fsTotal.textContent = data["fsTotalBytes"];
-//       fsUsed.textContent = data["fsUsedBytes"];
-//     })
-//     .catch(error => {
-//       console.error("Error fetching system info:", error);
-//       // Handle error, maybe display a message to the user
-//       chipModel.textContent = "Error loading";
-//       // ... set other fields to "Error loading" as well
-//     });
+  fetch('/api/sysinfo')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      chipModel.textContent = data["Chip Model"];
+      chipCores.textContent = data["Chip Cores"];
+      chipRevision.textContent = data["Chip Revision"];
+      flashSize.textContent = data["flashSize"];
+      freeHeap.textContent = data["freeHeap"];
+      fsTotal.textContent = data["fsTotalBytes"];
+      fsUsed.textContent = data["fsUsedBytes"];
+    })
+    .catch(error => {
+      console.error("Error fetching system info:", error);
+      // Handle error, maybe display a message to the user
+      chipModel.textContent = "Error loading";
+      // ... set other fields to "Error loading" as well
+    });
 
 
-//   fetch('/api/list')
-//     .then(response => {
-//       if (!response.ok) {
-//         throw new Error(`HTTP error! status: ${response.status}`);
-//       }
-//       return response.json();
-//     })
-//     .then(files => {
-//       if (!files || !Array.isArray(files)) {
-//         throw new Error("Invalid data format received from the server.");
-//       }
-//       fileCount.textContent = files.length;
-//       let totalSize = 0;
-//       files.forEach(file => {
-//         totalSize += file.size;
-//       });
-//       totalFileSize.textContent = (totalSize / 1024).toFixed(2) + " KB"; // Convert to KB
-//     })
-//     .catch(error => {
-//         console.error("Error fetching file list:", error);
-//         fileCount.textContent = "Error loading";
-//         totalFileSize.textContent = "Error loading";
-//     });
+  fetch('/api/list')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(files => {
+      if (!files || !Array.isArray(files)) {
+        throw new Error("Invalid data format received from the server.");
+      }
+      fileCount.textContent = files.length;
+      let totalSize = 0;
+      files.forEach(file => {
+        totalSize += file.size;
+      });
+      totalFileSize.textContent = (totalSize / 1024).toFixed(2) + " KB"; // Convert to KB
+    })
+    .catch(error => {
+        console.error("Error fetching file list:", error);
+        fileCount.textContent = "Error loading";
+        totalFileSize.textContent = "Error loading";
+    });
 
-// </script>
+</script>
 
-// </body>
-// </html>
-// )==";
+</body>
+</html>
+)==";
 
 #endif // _THERMAL_CAMERA_SERVER_

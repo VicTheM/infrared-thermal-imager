@@ -12,14 +12,10 @@ unsigned int counter;
 String filename;
 int fileID;
 uint16_t* thermalBitmap;
-// float* thermalBitmap;
-
-uint16_t x, y;
-boolean flag = false;
-
+uint16_t* thermalBitmapColored;
 float pixels[64];
 float interpolatedPixels[576];
-// float interpolatedPixels[64];
+
 
 /******************************* Setup code: Entry point to run once ***********************/
 void setup() {
@@ -27,7 +23,7 @@ void setup() {
   tft.begin(hspi);
   Serial.begin(115200);
   thermalBitmap = new (std::nothrow) uint16_t[IMG_WIDTH * IMG_HEIGHT];
-  // thermalBitmap = new (std::nothrow) float[IMG_WIDTH * IMG_HEIGHT];
+  thermalBitmapColored = new (std::nothrow) uint16_t[IMG_WIDTH * IMG_HEIGHT];
   if (!thermalBitmap) {
     Serial.println("Failed to allocate array");
   }
@@ -50,7 +46,6 @@ void setup() {
   }
   esp_partition_iterator_release(i);
 
-  // mount and format as needed
   if (!fsys) {
     Serial.println("Fs bad"); // bad
   } else if ((fsys == (fs::FS *)&LittleFS) && (!LittleFS.begin())) {
@@ -59,11 +54,9 @@ void setup() {
     ESP.restart();
   }
 
-  Serial.setDebugOutput(true);
-
+  Serial.setDebugOutput(false);
   WiFi.setHostname(HOSTNAME);
   WiFi.mode(WIFI_STA);
-
   attachInterrupt(captureButton.PIN, isr, FALLING);
   digitalWrite(WEB_SERVER_LED_PIN, LOW);
 }
@@ -71,23 +64,15 @@ void setup() {
 
 /******************************* Main program loop *****************************************/
 void loop() {
-
-  // VIDEO STREAM IF WEBSERVER IS OFF
-  /**
-   * A routine is followed here. we confirm the webserver is off them we obtain current temp
-   * values from the sensor, interpolate it and write it to screen (1 frame)
-   * The next two block of code simply checks if the current screen should be saved to memory
-   * or if web server should be enabled. while the webserver is off, the loop continues
-   * at a refresh rate of about 20Hz. Capturing an image does not affect the video, it only
-   * decreases refresh rate while it is being saved to memory
-   */
+  // GET AND DISPLAY IMAGE
   if (serverSwitch.pressed == false) {
     for (counter=0; counter < THERMAL_SENSOR_RESOLUTION; counter++) {
       pixels[counter] = grideye.getPixelTemperature(counter);
-      // interpolatedPixels[counter] = grideye.getPixelTemperature(counter);
     }
     interpolate_image(pixels, AMG8833RES_X, AMG8833RES_Y, interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
-    drawThermalImage();
+    interpolate1DArray(interpolatedPixels, thermalBitmap);
+    mapIntoRGB565Color(thermalBitmap, IMG_WIDTH * IMG_HEIGHT, thermalBitmapColored);
+    tft.drawBitmap(0, 0, thermalBitmapColored, IMG_WIDTH, IMG_HEIGHT);
   }
 
   // CAPTURE IMAGE
@@ -96,9 +81,7 @@ void loop() {
 
     fileID = getFileID();
     filename = "/img_" + String(fileID) + ".bmp";
-    // generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
     interpolate1DArray(interpolatedPixels, thermalBitmap);
-    // mapIntoRGB565Color(thermalBitmap, IMG_WIDTH, IMG_HEIGHT);
     if (createTemperatureBMP(thermalBitmap, filename.c_str())) {
         Serial.println("BMP file created successfully");
     } else {
@@ -131,6 +114,7 @@ void loop() {
   }
 }
 
+
 /********************************** Function definitions ************************************/
 
 /**
@@ -147,6 +131,7 @@ void IRAM_ATTR isr() {
     captureButton.lastPressTime = currentTime;
   }
 }
+
 
 /**
  * get_point - Obtain a cell from a 2D array
@@ -181,6 +166,8 @@ uint16_t get_point(uint16_t *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y) 
     y = rows - 1;
   return p[y * cols + x];
 }
+
+
 /**
  * printThermalGrid - print the thermal heat values to the terminal
  * @p: The 2D array to be printed
@@ -215,6 +202,8 @@ void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols) {
     }
     Serial.println();
 }
+
+
 int getFileID() {
   Preferences mem;
   bool mem_active;
@@ -247,7 +236,6 @@ int getFileID() {
 
   return fileID;
 }
-
 
 
 float getInterpolatedTemperature(float x, float y) {
@@ -303,6 +291,7 @@ void generateThermalImage() {
     }
 }
 
+
 /**
  * set_point - sets a cell in a 2D array
  * @p: The 2D array
@@ -321,6 +310,7 @@ void set_point(float *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y, float f
     return;
   p[y * cols + x] = f;
 }
+
 
 /**
  * interpolate_image - magnifies (inflates) an image from a low resolution to a higher resolution
@@ -354,6 +344,7 @@ void interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols,
   }
 }
 
+
 /**
  * cubicInterpolate - Performs cubic interpolation in one dimension.
  * @p: Array of 4 adjacent points (2 on the left and 2 on the right).
@@ -368,6 +359,7 @@ float cubicInterpolate(float p[], float x) {
                           x * (3.0 * (p[1] - p[2]) + p[3] - p[0]))));
   return r;
 }
+
 
 /**
  * bicubicInterpolate - Performs bicubic interpolation using cubic interpolation in two dimensions.
@@ -385,6 +377,7 @@ float bicubicInterpolate(float p[], float x, float y) {
   arr[3] = cubicInterpolate(p + 12, x);
   return cubicInterpolate(arr, y);
 }
+
 
 /**
  * get_adjacents_1d - Retrieves four adjacent points from a 2D image for 1D cubic interpolation.
@@ -404,6 +397,7 @@ void get_adjacents_1d(float *src, float *dest, uint8_t rows, uint8_t cols,
   dest[2] = get_point(src, rows, cols, x + 1, y);
   dest[3] = get_point(src, rows, cols, x + 2, y);
 }
+
 
 /**
  * get_adjacents_2d - Retrieves a 4x4 grid of neighboring pixels around a target pixel for bicubic interpolation.
@@ -498,7 +492,6 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     bmpHeader[24] = (uint8_t)((IMG_HEIGHT >> 16) & 0xFF);
     bmpHeader[25] = (uint8_t)((IMG_HEIGHT >> 24) & 0xFF);
 
-    // Open file in LittleFS
     File file = LittleFS.open(filename, "w");
     if (!file) {
         Serial.println("Failed to create file");
@@ -551,7 +544,7 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     return true;
 }
 
-void mapIntoRGB565Color(uint16_t *arr, int len) {
+void mapIntoRGB565Color(uint16_t *arr, int len, uint16_t *arr2) {
     // Normalize temperature range (18°C to 70°C) to (0 to 255)
     uint16_t t;
     uint8_t r, g, b;
@@ -572,7 +565,7 @@ void mapIntoRGB565Color(uint16_t *arr, int len) {
       else {
         r = 255; g = 255 - (t - 192) * 4; b = 0;
         }                              // Yellow to Red
-      arr[x] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3); // Convert to 16-bit RGB565
+      arr2[x] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3); // Convert to 16-bit RGB565
     }
 }
 
