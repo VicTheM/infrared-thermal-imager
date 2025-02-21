@@ -97,7 +97,12 @@ void loop() {
 
     fileID = getFileID();
     filename = "/img_" + String(fileID) + ".bmp";
-    generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
+    // generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
+    if (createTemperatureBMP(interpolatedPixels, filename.c_str())) {
+        Serial.println("BMP file created successfully");
+    } else {
+        Serial.println("Failed to create BMP file");
+    }
     printThermalGrid(interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
   }
 
@@ -500,4 +505,107 @@ void drawThermalImage() {
             tft.fillRectangle(x1, y1, x2, y2, color);
         }
     }
+}
+
+// Function to interpolate between blue and red
+void getTemperatureColor(float temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b) {
+    // float ratio = (temp - minTemp) / (maxTemp - minTemp);
+    // ratio = constrain(ratio, 0.0, 1.0);
+    
+    int tem;
+    tem = constrain(temp, minTemp, maxTemp);
+    int t = (int)((tem - minTemp) * (255.0 / (maxTemp - minTemp)));
+
+    // Define gradient colors: Blue (cold) → Cyan → Green → Yellow → Red (hot)
+    if (t < 64) { r = 0; g = t * 4; b = 255; } // Blue to Cyan
+    else if (t < 128) { r = 0; g = 255; b = 255 - (t - 64) * 4; } // Cyan to Green
+    else if (t < 192) { r = (t - 128) * 4; g = 255; b = 0; } // Green to Yellow
+    else { r = 255; g = 255 - (t - 192) * 4; b = 0; } // Yellow to Red
+    // Blue (0,0,255) to Red (255,0,0) through purple
+}
+
+bool createTemperatureBMP(float *tempArray, const char* filename) {
+    const int WIDTH = 240;
+    const int HEIGHT = 240;
+    const int SCALE = 10;  // 24x24 scaled to 240x240 (10x scaling)
+    const float MIN_TEMP = 19.0;
+    const float MAX_TEMP = 36.0;
+    
+    // Calculate BMP sizes
+    uint32_t rowSize = ((24 * WIDTH + 31) / 32) * 4;  // Padding to 4-byte boundary
+    uint32_t imageSize = rowSize * HEIGHT;
+    uint32_t fileSize = 54 + imageSize;  // Header + pixel data
+
+    uint8_t bmpHeader[54] = {
+        0x42, 0x4D, 0, 0, 0, 0,  // File size (to be calculated)
+        0x00, 0x00, 0x00, 0x00,  // Reserved
+        0x36, 0x00, 0x00, 0x00,  // Offset to pixel data (54 bytes, no color palette)
+
+        // DIB Header
+        0x28, 0x00, 0x00, 0x00,  // Header size (40 bytes)
+        0xF0, 0x00, 0x00, 0x00,  // Width: 240 pixels
+        0xF0, 0x00, 0x00, 0x00,  // Height: 240 pixels
+        0x01, 0x00,              // Planes (1)
+        0x18, 0x00,              // Bits per pixel (24-bit)
+        0x00, 0x00, 0x00, 0x00,  // Compression (None)
+        0, 0, 0, 0,              // Image size (can be 0 for uncompressed)
+        0x13, 0x0B, 0x00, 0x00,  // Horizontal resolution (2835 pixels/meter)
+        0x13, 0x0B, 0x00, 0x00,  // Vertical resolution (2835 pixels/meter)
+        0x00, 0x00, 0x00, 0x00,  // Colors in palette (0 for 24-bit)
+        0x00, 0x00, 0x00, 0x00   // Important colors (0)
+    };
+
+    // Open file in LittleFS
+    File file = LittleFS.open(filename, "w");
+    if (!file) {
+        Serial.println("Failed to create file");
+        return false;
+    }
+
+    // Update file size in header
+    bmpHeader[2] = (uint8_t)(fileSize & 0xFF);
+    bmpHeader[3] = (uint8_t)((fileSize >> 8) & 0xFF);
+    bmpHeader[4] = (uint8_t)((fileSize >> 16) & 0xFF);
+    bmpHeader[5] = (uint8_t)((fileSize >> 24) & 0xFF);
+
+    // Write BMP header
+    file.write(bmpHeader, 54);
+
+    // Create pixel buffer for one row
+    uint8_t* rowBuffer = (uint8_t*)malloc(rowSize);
+    if (!rowBuffer) {
+        file.close();
+        return false;
+    }
+
+    // Generate image data (bottom-up as per BMP spec)
+    for (int y = HEIGHT - 1; y >= 0; y--) {
+        int srcY = y / SCALE;  // Map to original 24x24 grid
+        for (int x = 0; x < WIDTH; x++) {
+            int srcX = x / SCALE;  // Map to original 24x24 grid
+            float temp = tempArray[srcY * 24 + srcX];
+            
+            // Get color for this temperature
+            uint8_t r, g, b;
+            getTemperatureColor(temp, MIN_TEMP, MAX_TEMP, r, g, b);
+            
+            // Write BGR (BMP format uses BGR order)
+            rowBuffer[x * 3] = b;
+            rowBuffer[x * 3 + 1] = g;
+            rowBuffer[x * 3 + 2] = r;
+        }
+        
+        // Pad row to 4-byte boundary
+        for (int i = WIDTH * 3; i < rowSize; i++) {
+            rowBuffer[i] = 0;
+        }
+        
+        // Write row to file
+        file.write(rowBuffer, rowSize);
+    }
+
+    // Cleanup
+    free(rowBuffer);
+    file.close();
+    return true;
 }

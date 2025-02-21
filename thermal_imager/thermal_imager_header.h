@@ -66,6 +66,8 @@ uint16_t getColorFromTemperature(float temp);
 void generateThermalImage();
 
 void drawpixels(float *p, uint8_t rows, uint8_t cols, uint8_t scaleX, uint8_t scaleY);
+bool createTemperatureBMP(float* tempArray, const char* filename);
+void getTemperatureColor(float temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b);
 
 
 /********************************** Structures ************************************/
