@@ -42,6 +42,8 @@
 #define SCREEN_HEIGHT 220
 #define SENSOR_WIDTH  24
 #define SENSOR_HEIGHT 24
+#define AMG8833RES_X 8
+#define AMG8833RES_Y 8
 
 
 
@@ -64,10 +66,13 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 float getInterpolatedTemperature(float x, float y);
 uint16_t getColorFromTemperature(float temp);
 void generateThermalImage();
+void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols);
 
 void drawpixels(float *p, uint8_t rows, uint8_t cols, uint8_t scaleX, uint8_t scaleY);
 bool createTemperatureBMP(uint16_t* tempArray, const char* filename);
 void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b);
+void mapIntoRGB565Color(uint16_t *arr, int len);
+void interpolate1DArray(float* sensorData, uint16_t* imgData);
 
 
 /********************************** Structures ************************************/

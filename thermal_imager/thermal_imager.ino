@@ -86,10 +86,7 @@ void loop() {
       pixels[counter] = grideye.getPixelTemperature(counter);
       // interpolatedPixels[counter] = grideye.getPixelTemperature(counter);
     }
-    interpolate_image(pixels, 8, 8, interpolatedPixels, 24, 24);
-    // printThermalGrid(interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
-    generateThermalImage();
-    // tft.drawBitmap(0, 0, thermalBitmap, IMG_WIDTH, IMG_HEIGHT);
+    interpolate_image(pixels, AMG8833RES_X, AMG8833RES_Y, interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
     drawThermalImage();
   }
 
@@ -100,12 +97,13 @@ void loop() {
     fileID = getFileID();
     filename = "/img_" + String(fileID) + ".bmp";
     // generate_bmp(interpolatedPixels, LittleFS, filename.c_str());
+    interpolate1DArray(interpolatedPixels, thermalBitmap);
+    // mapIntoRGB565Color(thermalBitmap, IMG_WIDTH, IMG_HEIGHT);
     if (createTemperatureBMP(thermalBitmap, filename.c_str())) {
         Serial.println("BMP file created successfully");
     } else {
         Serial.println("Failed to create BMP file");
     }
-    printThermalGrid(interpolatedPixels, SENSOR_WIDTH, SENSOR_HEIGHT);
   }
 
   // ENABLE WEB SERVER
@@ -114,8 +112,8 @@ void loop() {
     if (currentTime - serverSwitch.lastPressTime > SERVER_DELAY && serverSwitch.pressed == false) {
       serverSwitch.pressed = true;
       startServer();
-      digitalWrite(WEB_SERVER_LED_PIN, HIGH);
       serverSwitch.lastPressTime = currentTime;
+      digitalWrite(WEB_SERVER_LED_PIN, HIGH);
     }
   }
   else {
@@ -204,80 +202,19 @@ void printThermalGrid(float *p, uint8_t rows, uint8_t cols) {
     }
     Serial.println();
 }
-
-
-bool generate_bmp(float *src, fs::FS &file, const char *filename) {
-    uint8_t bmpHeader[54] = {
-        0x42, 0x4D, 0, 0, 0, 0,  // File size (to be calculated)
-        0x00, 0x00, 0x00, 0x00,  // Reserved
-        0x36, 0x04, 0x00, 0x00,  // Offset to pixel data (54 + 1024 bytes for palette)
-
-        // DIB Header
-        0x28, 0x00, 0x00, 0x00,  // Header size
-        IMG_WIDTH & 0xFF, (IMG_WIDTH >> 8) & 0xFF, 0x00, 0x00,  // Width
-        IMG_HEIGHT & 0xFF, (IMG_HEIGHT >> 8) & 0xFF, 0x00, 0x00,  // Height
-        0x01, 0x00,              // Planes (1)
-        0x08, 0x00,              // Bits per pixel (8-bit)
-        0x00, 0x00, 0x00, 0x00,  // Compression (None)
-        0, 0, 0, 0,              // Image size (not needed for uncompressed BMP)
-        0x13, 0x0B, 0x00, 0x00,  // Horizontal resolution
-        0x13, 0x0B, 0x00, 0x00,  // Vertical resolution
-        0x00, 0x01, 0x00, 0x00,  // Colors in palette (256)
-        0x00, 0x00, 0x00, 0x00   // Important colors (0)
-    };
-
-    int rowSize = (IMG_WIDTH + 3) & ~3;  // Ensure row size is multiple of 4
-    int fileSize = 54 + 1024 + (rowSize * IMG_HEIGHT);
-
-    // Update file size in header
-    bmpHeader[2] = (uint8_t)(fileSize & 0xFF);
-    bmpHeader[3] = (uint8_t)((fileSize >> 8) & 0xFF);
-    bmpHeader[4] = (uint8_t)((fileSize >> 16) & 0xFF);
-    bmpHeader[5] = (uint8_t)((fileSize >> 24) & 0xFF);
-
-    // Open file for writing
-    File fs = file.open(filename, FILE_WRITE);
-    if (!fs) {
-        Serial.println("Failed to create file");
-        return false;
-    }
-
-    // Write BMP header
-    fs.write(bmpHeader, 54);
-
-    // --- Custom Color Palette ---
-    for (int t = 0; t < 256; t++) {
-        uint8_t r, g, b;
-
-        if (t < 64) { r = 0; g = t * 4; b = 255; } // Blue → Cyan
-        else if (t < 128) { r = 0; g = 255; b = 255 - (t - 64) * 4; } // Cyan → Green
-        else if (t < 192) { r = (t - 128) * 4; g = 255; b = 0; } // Green → Yellow
-        else { r = 255; g = 255 - (t - 192) * 4; b = 0; } // Yellow → Red
-
-        fs.write(b);  // Blue
-        fs.write(g);  // Green
-        fs.write(r);  // Red
-        fs.write(0);  // Reserved (must be 0)
-    }
-
-    // --- Write Pixel Data (Bottom-Up Order) ---
-    uint8_t padding[3] = {0, 0, 0};  
-    for (int y = IMG_HEIGHT - 1; y >= 0; y--) {  
-        for (int x = 0; x < IMG_WIDTH; x++) {
-            float temp = get_point(src, IMG_HEIGHT, IMG_WIDTH, x, y);
-            temp = (temp > MAXTEMP) ? MAXTEMP : (temp < MINTEMP) ? MINTEMP : temp;
-            uint8_t pixelIndex = map(temp, MINTEMP, MAXTEMP, 0, 255);  // MIN = blue, MAX = red
-
-            fs.write(pixelIndex);
+void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols) {
+    Serial.println(F("Thermal Sensor Readings:"));
+    float val;
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            val = get_point(p, rows, cols, x, y);
+            Serial.print(val, 2);
+            Serial.print("\t");
         }
-        fs.write(padding, rowSize - IMG_WIDTH);
+        Serial.println();
     }
-
-    fs.close();
-    Serial.println("8-bit BMP file created with color palette!");
-    return true;
+    Serial.println();
 }
-
 int getFileID() {
   Preferences mem;
   bool mem_active;
@@ -361,7 +298,6 @@ void generateThermalImage() {
             float sensorY = y * scaleY;
 
             float temp = getInterpolatedTemperature(sensorX, sensorY);
-            // thermalBitmap[y * IMG_WIDTH + x] = getColorFromTemperature(temp);
             thermalBitmap[y * IMG_WIDTH + x] = (uint16_t)temp;
         }
     }
@@ -528,14 +464,9 @@ void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r
 }
 
 bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
-    const int WIDTH = 176;
-    const int HEIGHT = 220;
-    const float MIN_TEMP = 19.0;
-    const float MAX_TEMP = 36.0;
-    
     // Calculate BMP sizes
-    uint32_t rowSize = ((24 * WIDTH + 31) / 32) * 4;  // Padding to 4-byte boundary
-    uint32_t imageSize = rowSize * HEIGHT;
+    uint32_t rowSize = ((24 * IMG_WIDTH + 31) / 32) * 4;  // Padding to 4-byte boundary
+    uint32_t imageSize = rowSize * IMG_HEIGHT;
     uint32_t fileSize = 54 + imageSize;  // Header + pixel data
 
     uint8_t bmpHeader[54] = {
@@ -545,8 +476,8 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
 
         // DIB Header
         0x28, 0x00, 0x00, 0x00,  // Header size (40 bytes)
-        0xB0, 0x00, 0x00, 0x00,  // Width: 176 pixels (0xB0 in hex)
-        0xDC, 0x00, 0x00, 0x00,  // Height: 220 pixels (0xDC in hex)
+        0x00, 0x00, 0x00, 0x00,  // TO BE COMPUTED
+        0x00, 0x00, 0x00, 0x00,  // TO BE COMPUTED
         0x01, 0x00,              // Planes (1)
         0x18, 0x00,              // Bits per pixel (24-bit)
         0x00, 0x00, 0x00, 0x00,  // Compression (None)
@@ -556,6 +487,16 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
         0x00, 0x00, 0x00, 0x00,  // Colors in palette (0 for 24-bit)
         0x00, 0x00, 0x00, 0x00   // Important colors (0)
     };
+    // Convert integers to little-endian byte order
+    bmpHeader[18] = (uint8_t)(IMG_WIDTH & 0xFF);
+    bmpHeader[19] = (uint8_t)((IMG_WIDTH >> 8) & 0xFF);
+    bmpHeader[20] = (uint8_t)((IMG_WIDTH >> 16) & 0xFF);
+    bmpHeader[21] = (uint8_t)((IMG_WIDTH >> 24) & 0xFF);
+
+    bmpHeader[22] = (uint8_t)(IMG_HEIGHT & 0xFF);
+    bmpHeader[23] = (uint8_t)((IMG_HEIGHT >> 8) & 0xFF);
+    bmpHeader[24] = (uint8_t)((IMG_HEIGHT >> 16) & 0xFF);
+    bmpHeader[25] = (uint8_t)((IMG_HEIGHT >> 24) & 0xFF);
 
     // Open file in LittleFS
     File file = LittleFS.open(filename, "w");
@@ -581,13 +522,13 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     }
 
     // Generate image data (bottom-up as per BMP spec)
-    for (int y = HEIGHT - 1; y >= 0; y--) {
-        for (int x = 0; x < WIDTH; x++) {
-            uint16_t temp = tempArray[y * WIDTH + x];
+    for (int y = IMG_HEIGHT - 1; y >= 0; y--) {
+        for (int x = 0; x < IMG_WIDTH; x++) {
+            uint16_t temp = tempArray[y * IMG_WIDTH + x];
 
             // Get color for this temperature
             uint8_t r, g, b;
-            getTemperatureColor(temp, MIN_TEMP, MAX_TEMP, r, g, b);
+            getTemperatureColor(temp, MINTEMP, MAXTEMP, r, g, b);
 
             // Write BGR (BMP format uses BGR order)
             rowBuffer[x * 3] = b;
@@ -596,7 +537,7 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
         }
 
         // Pad row to 4-byte boundary
-        for (int i = WIDTH * 3; i < rowSize; i++) {
+        for (int i = IMG_WIDTH * 3; i < rowSize; i++) {
             rowBuffer[i] = 0;
         }
 
@@ -608,4 +549,61 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     free(rowBuffer);
     file.close();
     return true;
+}
+
+void mapIntoRGB565Color(uint16_t *arr, int len) {
+    // Normalize temperature range (18°C to 70°C) to (0 to 255)
+    uint16_t t;
+    uint8_t r, g, b;
+    for (int x = 0; x < len; x++) {
+      t = (int)((arr[x] - MINTEMP) * (255.0 / (MAXTEMP - MINTEMP)));
+
+      // Define gradient colors: Blue (cold) → Cyan → Green → Yellow → Red (hot)
+      if (t < 64) {
+        // if (t <= 0) { Serial.println(t); }
+        r = 0; g = t * 4; b = 255;
+        }                             // Blue to Cyan
+      else if (t < 128) {
+        r = 0; g = 255; b = 255 - (t - 64) * 4;
+        }                             // Cyan to Green
+      else if (t < 192) {
+        r = (t - 128) * 4; g = 255; b = 0;
+        }                             // Green to Yellow
+      else {
+        r = 255; g = 255 - (t - 192) * 4; b = 0;
+        }                              // Yellow to Red
+      arr[x] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3); // Convert to 16-bit RGB565
+    }
+}
+
+
+void interpolate1DArray(float* sensorData, uint16_t* imgData) {
+    float xRatio = (float)(SENSOR_WIDTH - 1) / (IMG_WIDTH - 1);
+    float yRatio = (float)(SENSOR_HEIGHT - 1) / (IMG_HEIGHT - 1);
+
+    for (int y = 0; y < IMG_HEIGHT; y++) {
+        for (int x = 0; x < IMG_WIDTH; x++) {
+            float gx = x * xRatio;
+            float gy = y * yRatio;
+
+            int x0 = (int)gx;
+            int y0 = (int)gy;
+            int x1 = min(x0 + 1, SENSOR_WIDTH - 1);
+            int y1 = min(y0 + 1, SENSOR_HEIGHT - 1);
+
+            float dx = gx - x0;
+            float dy = gy - y0;
+
+            float topLeft = sensorData[y0 * SENSOR_WIDTH + x0];
+            float topRight = sensorData[y0 * SENSOR_WIDTH + x1];
+            float bottomLeft = sensorData[y1 * SENSOR_WIDTH + x0];
+            float bottomRight = sensorData[y1 * SENSOR_WIDTH + x1];
+
+            float topInterp = topLeft + dx * (topRight - topLeft);
+            float bottomInterp = bottomLeft + dx * (bottomRight - bottomLeft);
+            float finalValue = topInterp + dy * (bottomInterp - topInterp);
+
+            imgData[y * IMG_WIDTH + x] = finalValue;
+        }
+    }
 }
