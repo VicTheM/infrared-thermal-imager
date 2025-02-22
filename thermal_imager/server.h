@@ -75,18 +75,25 @@ body {
   color: red;
   margin-top: 10px;
 }
+#file-warning {
+  color: orange;
+  margin-top: 10px;
+  font-style: italic;
+}
 </style>
 </head>
 <body>
 
-<h1>Files</h1>
+<h1>Images</h1>
 
 <div id="file-list"></div>
 <div id="error-message"></div>
+<div id="file-warning">All files will be deleted if the number of files exceeds 10 to make space for new ones; alternatively you can delete files yourself.</div>
 
 <script>
   const fileListDiv = document.getElementById('file-list');
   const errorMessageDiv = document.getElementById('error-message');
+  const fileWarningDiv = document.getElementById('file-warning');
 
   fetch('/api/list')
     .then(response => {
@@ -100,9 +107,11 @@ body {
         throw new Error("Invalid data format received from the server.");
       }
       if (data.length === 0) {
-        fileListDiv.innerHTML = "<p>No files found.</p>";
+        fileListDiv.innerHTML = "<p>No files found. Note: Max storable file = 10</p>";
+        fileWarningDiv.style.display = "none";
         return;
       }
+      fileWarningDiv.style.display = "block";
       data.forEach(file => {
         const fileContainer = document.createElement('div'); // Container for buttons and icon
         fileContainer.className = 'file-container';

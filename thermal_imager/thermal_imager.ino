@@ -2,7 +2,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 
-/******************************** Variable declarations ************************************/
+/************************************* Variable declarations ************************************/
 GridEYE grideye;
 SPIClass hspi(HSPI);
 TFT_22_ILI9225 tft = TFT_22_ILI9225(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
@@ -223,10 +223,10 @@ void printThermalGrid(float *p, uint8_t rows, uint8_t cols) {
 
 void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols) {
     // Serial.println(F("Thermal Sensor Readings:"));
-    float val;
+    // float val;
     for (int y = 0; y < rows; y++) {
         for (int x = 0; x < cols; x++) {
-            val = get_point(p, rows, cols, x, y);
+            // val = get_point(p, rows, cols, x, y);
             // Serial.print(val, 2);
             // Serial.print("\t");
         }
@@ -251,7 +251,7 @@ int getFileID() {
 
   if (mem_active) {
     fileID = mem.getInt(PREFERENCE_KEY);
-    if (fileID < 300) {
+    if (fileID < 1000) {
       mem.putInt(PREFERENCE_KEY, fileID + 1);
       mem.end();
     }
@@ -261,7 +261,7 @@ int getFileID() {
     return(fileID);
     }
   else {
-    fileID = 301; // failed to read counter from memory
+    fileID = 1001; // failed to read counter from memory
     return(fileID);
   }
 
@@ -474,7 +474,8 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     bmpHeader[25] = (uint8_t)((IMG_HEIGHT >> 24) & 0xFF);
 
     // Open file in LittleFS
-    File file = LittleFS.open(filename, "w");
+    monitorMemoryOverflow();
+    File file = fsys->open(filename, "w");
     if (!file) {
         // Serial.println("Failed to create file");
         return false;
@@ -580,7 +581,14 @@ void interpolate1DArray(float* sensorData, uint16_t* imgData) {
     }
 }
 
-// Get centroid of triangle
+
+/**
+ * getInterpolatedTemperature - Interpolates the temperature at a given point.
+  * @x: X-coordinate of the point.
+  * @y: Y-coordinate of the point.
+  *
+  * Return: Interpolated temperature.
+  */
 _point getCoordCentroid( _point a, _point b, _point c ) {
   _point o;
 
@@ -590,7 +598,17 @@ _point getCoordCentroid( _point a, _point b, _point c ) {
   return o;
 }
 
-// Rotate triangle around point r
+
+/**
+  * rotateTriangle - Rotates a triangle around a point by a given angle.
+  * @a: First point of the triangle.
+  * @b: Second point of the triangle.
+  * @c: Third point of the triangle.
+  * @r: Point to rotate around.
+  * @deg: Angle of rotation in degrees.
+  *
+  * Return: Void
+  */
 void rotateTriangle( _point &a, _point &b, _point &c, _point r, int16_t deg ) {
 
   // Convert degrees to radians
@@ -602,6 +620,15 @@ void rotateTriangle( _point &a, _point &b, _point &c, _point r, int16_t deg ) {
   c = rotatePoint( r, angle, c);
 }
 
+
+/**
+ * rotatePoint - Rotates a point around a center point by a given angle.
+  * @c: Center point to rotate around.
+  * @angle: Angle of rotation in radians.
+  * @p: Point to rotate.
+  *
+  * Return: Rotated point.
+  */
 _point rotatePoint( _point c, float angle, _point p ) {
   _point r;
   
@@ -613,4 +640,34 @@ _point rotatePoint( _point c, float angle, _point p ) {
   r.y = sin(angle) * (p.x - c.x) + cos(angle) * (p.y - c.y) + c.y;
 
   return r;
+}
+
+unsigned int getNumberOfFiles() {
+  File dir = fsys->open("/", "r");
+  unsigned int n = 0;
+
+  while (File entry = dir.openNextFile()) {
+    n++;
+  }
+
+  return n;
+}
+
+void deleteFiles() {
+    Serial.println("Deleting all files...");
+    File root = fsys->open("/", "r");
+    
+    while (File file = root.openNextFile("r")) {
+        String filename = file.name();
+        filename = "/" + filename;
+        file.close();
+        fsys->remove(filename);
+    }
+}
+
+void monitorMemoryOverflow() {
+  unsigned int numberOfFiles = getNumberOfFiles();
+  if (numberOfFiles >= MAX_NUMBER_OF_FILES) {
+    deleteFiles();
+  }
 }
