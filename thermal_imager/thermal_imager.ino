@@ -24,6 +24,12 @@ const char *_myapPassword = "AMG8833_BME";
 void setup() {
   hspi.begin();
   tft.begin(hspi);
+  Wire.begin();
+  delay(500);
+  grideye.begin();
+  delay(500);
+  Serial.begin(115200);
+
   thermalBitmap = new (std::nothrow) uint16_t[IMG_WIDTH * IMG_HEIGHT];
   if (!thermalBitmap) {
     // Serial.println("Failed to allocate array");
@@ -39,12 +45,6 @@ void setup() {
   tft.setFont(Terminal6x8);
   tft.drawText(9, 20, "INFRARED THERMAL IMAGER", COLOR_RED);
   tft.drawText(50, 190, "Loading ...", COLOR_WHITE);
-
-  Wire.begin();
-  delay(500);
-  grideye.begin();
-  delay(500);
-  Serial.begin(115200);
 
   // check for partition
   esp_partition_iterator_t i;
@@ -85,8 +85,20 @@ void setup() {
 }
 
 
-/******************************* Main program loop *****************************************/
+/*************************************** Main program loop ********************************************/
 void loop() {
+  /**
+   * HOW THIS LOOP WORKS
+   * 1. Read the thermal sensor and store the values in an array
+   * 2. Interpolate the values to a higher resolution and display on screen 
+   * It keeps doing this until either the capture button get pressed or the server switch is toggled
+   * If capture button is pressed
+   * 3. Yet interpolate the interpolated values to a higher resolution and save as a bmp file
+   * If server switch is toggled
+   * 4. Start a web server and disable capture button
+   * 5. Display the server details on the TFT screen
+   * 6. Respomd to requests from web server
+   */
   if (serverSwitch.pressed == false) {
     for (counter=0; counter < THERMAL_SENSOR_RESOLUTION; counter++) {
       pixels[counter] = grideye.getPixelTemperature(counter);
@@ -150,7 +162,7 @@ void loop() {
 }
 
 
-/********************************** Function definitions ************************************/
+/**************************************** Function definitions *****************************************/
 /**
  * IRAM_ATTR - Interrupt service routine
  * Description: This function monitors the capture button
@@ -165,6 +177,7 @@ void IRAM_ATTR isr() {
     captureButton.lastPressTime = currentTime;
   }
 }
+
 
 /**
  * get_point - Obtain a cell from a 2D array
@@ -188,6 +201,17 @@ float get_point(float *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y) {
   return p[y * cols + x];
 }
 
+
+/**
+ * get_point - Obtain a cell from a 2D array
+ * @p: The 2D array
+ * @rows: The number of rows in array
+ * @cols: The number of columns in array
+ * @x: The row_index of cell to obtain
+ * @y: The column index of cell to obtain
+ *
+ * Return: Float - The value of that specific index
+ */
 uint16_t get_point(uint16_t *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y) {
   if (x < 0)
     x = 0;
@@ -199,6 +223,7 @@ uint16_t get_point(uint16_t *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y) 
     y = rows - 1;
   return p[y * cols + x];
 }
+
 
 /**
  * printThermalGrid - print the thermal heat values to the terminal
@@ -221,6 +246,15 @@ void printThermalGrid(float *p, uint8_t rows, uint8_t cols) {
     // Serial.println();
 }
 
+
+/**
+ * printThermalGrid - print the thermal heat values to the terminal
+ * @p: The 1D array to be printed on a 2D plane
+ * @rows: The number of rows to print
+ * @cols: The number of columns to print
+ *
+ * Return: Void
+ */
 void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols) {
     // Serial.println(F("Thermal Sensor Readings:"));
     // float val;
@@ -235,6 +269,12 @@ void printThermalGrid(uint16_t *p, uint8_t rows, uint8_t cols) {
     // Serial.println();
 }
 
+
+/**
+ * getFileID - Get the next file ID for saving thermal images
+ *
+ * Return: Integer - The next file ID
+ */
 int getFileID() {
   Preferences mem;
   bool mem_active;
@@ -268,7 +308,13 @@ int getFileID() {
   return fileID;
 }
 
-// Function to map temperature to a 16-bit RGB color
+
+/**
+ * getColorFromTemperature - Get the color of a pixel based on its temperature
+ * @temp: The temperature of the pixel
+ *
+ * Return: 16-bit RGB565 color
+ */
 uint16_t getColorFromTemperature(float temp) {
     int tem = constrain(temp, MINTEMP, MAXTEMP);
     int t = (int)((tem - MINTEMP) * (255.0 / (MAXTEMP - MINTEMP)));
@@ -282,6 +328,7 @@ uint16_t getColorFromTemperature(float temp) {
 
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);        // Convert to 16-bit RGB565
 }
+
 
 /**
  * set_point - sets a cell in a 2D array
@@ -301,6 +348,7 @@ void set_point(float *p, uint8_t rows, uint8_t cols, int8_t x, int8_t y, float f
     return;
   p[y * cols + x] = f;
 }
+
 
 /**
  * interpolate_image - magnifies (inflates) an image from a low resolution to a higher resolution
@@ -334,6 +382,7 @@ void interpolate_image(float *src, uint8_t src_rows, uint8_t src_cols,
   }
 }
 
+
 /**
  * cubicInterpolate - Performs cubic interpolation in one dimension.
  * @p: Array of 4 adjacent points (2 on the left and 2 on the right).
@@ -348,6 +397,7 @@ float cubicInterpolate(float p[], float x) {
                           x * (3.0 * (p[1] - p[2]) + p[3] - p[0]))));
   return r;
 }
+
 
 /**
  * bicubicInterpolate - Performs bicubic interpolation using cubic interpolation in two dimensions.
@@ -365,6 +415,7 @@ float bicubicInterpolate(float p[], float x, float y) {
   arr[3] = cubicInterpolate(p + 12, x);
   return cubicInterpolate(arr, y);
 }
+
 
 /**
  * get_adjacents_1d - Retrieves four adjacent points from a 2D image for 1D cubic interpolation.
@@ -384,6 +435,7 @@ void get_adjacents_1d(float *src, float *dest, uint8_t rows, uint8_t cols,
   dest[2] = get_point(src, rows, cols, x + 1, y);
   dest[3] = get_point(src, rows, cols, x + 2, y);
 }
+
 
 /**
  * get_adjacents_2d - Retrieves a 4x4 grid of neighboring pixels around a target pixel for bicubic interpolation.
@@ -406,6 +458,14 @@ void get_adjacents_2d(float *src, float *dest, uint8_t rows, uint8_t cols,
   }
 }
 
+
+/**
+ * drawThermalImage - Draws the thermal image (low resolution) on the TFT screen.
+ * It scales the picture to fit the screen size by using rectangles to represent pixels.
+ * The size of a rectangle is the scale factor and it is low resolution because of this.
+ *
+ * Return: Void
+ */
 void drawThermalImage() {
     int blockWidth = SCREEN_WIDTH / SENSOR_WIDTH;
     int blockHeight = SCREEN_HEIGHT / SENSOR_HEIGHT;
@@ -426,6 +486,18 @@ void drawThermalImage() {
     }
 }
 
+
+/**
+ * getTemperatureColor - Get the RGB color for a given temperature.
+ * @temp: The temperature value.
+ * @minTemp: The minimum temperature in the color map.
+ * @maxTemp: The maximum temperature in the color map.
+ * @r: Pointer to the red component of the color.
+ * @g: Pointer to the green component of the color.
+ * @b: Pointer to the blue component of the color.
+ *
+ * Return: Void
+ */
 void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r, uint8_t& g, uint8_t& b) {
     int tem;
     tem = constrain(temp, minTemp, maxTemp);
@@ -438,6 +510,14 @@ void getTemperatureColor(uint16_t temp, float minTemp, float maxTemp, uint8_t& r
     else { r = 255; g = 255 - (t - 192) * 4; b = 0; }             // Yellow to Red
 }
 
+
+/**
+ * createTemperatureBMP - Creates a BMP file from the temperature array.
+ * @tempArray: The temperature array.
+ * @filename: The filename of the BMP file.
+ *
+ * Return: True if the file was created successfully, false otherwise.
+ */
 bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     // Calculate BMP sizes
     uint32_t rowSize = ((24 * IMG_WIDTH + 31) / 32) * 4;  // Padding to 4-byte boundary
@@ -526,6 +606,14 @@ bool createTemperatureBMP(uint16_t* tempArray, const char* filename) {
     return true;
 }
 
+
+/**
+ * mapIntoRGB565Color - Maps the temperature values into RGB565 colors.
+ * @arr: Array of temperature values.
+ * @len: Length of the array.
+ *
+ * Return: Void
+ */
 void mapIntoRGB565Color(uint16_t *arr, int len) {
     uint16_t t;
     uint8_t r, g, b;
@@ -550,6 +638,13 @@ void mapIntoRGB565Color(uint16_t *arr, int len) {
 }
 
 
+/**
+ * interpolate1DArray - Interpolates a 1D array to a higher resolution.
+ * @sensorData: 1D array of sensor data.
+ * @imgData: 1D array to store interpolated data.
+ *
+ * Return: Void
+ */
 void interpolate1DArray(float* sensorData, uint16_t* imgData) {
     float xRatio = (float)(SENSOR_WIDTH - 1) / (IMG_WIDTH - 1);
     float yRatio = (float)(SENSOR_HEIGHT - 1) / (IMG_HEIGHT - 1);
@@ -584,11 +679,11 @@ void interpolate1DArray(float* sensorData, uint16_t* imgData) {
 
 /**
  * getInterpolatedTemperature - Interpolates the temperature at a given point.
-  * @x: X-coordinate of the point.
-  * @y: Y-coordinate of the point.
-  *
-  * Return: Interpolated temperature.
-  */
+ * @x: X-coordinate of the point.
+ * @y: Y-coordinate of the point.
+ *
+ * Return: Interpolated temperature.
+ */
 _point getCoordCentroid( _point a, _point b, _point c ) {
   _point o;
 
@@ -623,12 +718,12 @@ void rotateTriangle( _point &a, _point &b, _point &c, _point r, int16_t deg ) {
 
 /**
  * rotatePoint - Rotates a point around a center point by a given angle.
-  * @c: Center point to rotate around.
-  * @angle: Angle of rotation in radians.
-  * @p: Point to rotate.
-  *
-  * Return: Rotated point.
-  */
+ * @c: Center point to rotate around.
+ * @angle: Angle of rotation in radians.
+ * @p: Point to rotate.
+ *
+ * Return: Rotated point.
+ */
 _point rotatePoint( _point c, float angle, _point p ) {
   _point r;
   
@@ -642,6 +737,12 @@ _point rotatePoint( _point c, float angle, _point p ) {
   return r;
 }
 
+
+/**
+ * getNumberOfFiles - Get the number of files in the root directory.
+ *
+ * Return: Number of files.
+ */
 unsigned int getNumberOfFiles() {
   File dir = fsys->open("/", "r");
   unsigned int n = 0;
@@ -653,6 +754,12 @@ unsigned int getNumberOfFiles() {
   return n;
 }
 
+
+/**
+ * deleteFiles - Deletes all files in the root directory.
+ *
+ * Return: Void
+ */
 void deleteFiles() {
     Serial.println("Deleting all files...");
     File root = fsys->open("/", "r");
@@ -665,6 +772,12 @@ void deleteFiles() {
     }
 }
 
+
+/**
+ * monitorMemoryOverflow - Monitors the number of files in the root directory and deletes them if it exceeds the limit.
+ *
+ * Return: Void
+ */
 void monitorMemoryOverflow() {
   unsigned int numberOfFiles = getNumberOfFiles();
   if (numberOfFiles >= MAX_NUMBER_OF_FILES) {

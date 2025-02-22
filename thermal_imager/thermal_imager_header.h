@@ -24,7 +24,7 @@
 #define TFT_CLK 14                       // HSPI-SCK
 #define TFT_SDI 13                       // HSPI-MOSI
 #define TFT_CS  15                       // HSPI-SS0
-#define TFT_LED 0 
+#define TFT_LED 0                        // Backlight
 
 /********************************************** Other constants ************************************************/
 #define DEBOUNCE_DELAY 2000                // How fast multiple images can be captured (ie once every 2000 millisec)
