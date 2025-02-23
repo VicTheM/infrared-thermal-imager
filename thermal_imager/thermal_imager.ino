@@ -1,4 +1,4 @@
-#include "thermal_imager_header.h"
+#include "thermal_imager.h"
 #include <WebServer.h>
 #include <WiFi.h>
 
