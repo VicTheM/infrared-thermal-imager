@@ -166,13 +166,14 @@ You can find a tutorial about this display [Here](https://www.hackster.io/jdanie
 ##### Switches and others
 Remember we used switches to control states and led as indicator, so below is a brief description of how to connect them
 
----
-***Pin connections: Switches and LED - ESP32***
+***Pin connections: Switches and LED - ESP32***<br>
 _Capture button left leg --- D19_<br>
 _Capture button right leg --- GND_ (with a 5.7k pull-down resistor)<br>
 _Server switch left leg --- D18_<br>
 _Server switch right leg --- GND_ (with a 5.7k pull-down resistor)<br>
 _LED --- D12_ (with a 220 ohm resistor)<br>
+
+---
 
 ### Contribute to this project
 There are a number of ways you can contribute to this project, you can:
