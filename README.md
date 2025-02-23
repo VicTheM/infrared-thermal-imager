@@ -28,7 +28,9 @@ Only the hardware and firmware are hosted inn this repo, for the ai model please
 
 The hardware is built using the ESP32 microcontroller, a thermal sensor array, a display and a few switches. The firmware is written in C++ using the Arduino IDE. and at the time of writing this there are two realeases. refer to the [CHANGELOG](/CHANGELOG.md) file for features specific to each release. Further down this file, you will see information about every component used and how to set them up. Finally, the code is self-documenting and the functions are also well documented using C99 style, so if you wish to learn one or two, you can read the code.<br>
 
-The Variant-B branch holds high-speed high-efficiancy code but does not follow standard, as I had to manually download the display library and tweak some functions, accessing registers directly to get the speed I needed. The master branch is the standard code, it is slower but it is easily scalable and follows the standard. The master branch is recommended for beginners and for those who wish to learn from the code. The Variant-B branch is recommended for those who wish to use the device for a long time and need the speed, although the variant-b branch is behind and not yet stable<br>
+The Variant-B branch holds high-speed high-efficiancy code but does not follow standard, as I had to manually download the display library and tweak some functions, accessing registers directly to get the speed I needed. The master branch is the standard code, it is slower but it is easily scalable and follows the standard. The master branch is recommended for beginners and for those who wish to learn from the code.<br>
+> [!CAUTION]
+> The variabt-B branch is not stable and still under development.
 
 If you care about how it works...<br>
 ---
@@ -134,7 +136,7 @@ The AMG8833 is a versatile low resolution thermal sensor that has 64 temperature
 
 ---
 
-***Pin connections: AMG8833 - ESP32***
+***Pin connections: AMG8833 - ESP32***<br>
 _vcc --- 3.3v_<br>
 _GND --- GND_<br>
 _SDA --- D21_<br>
@@ -147,7 +149,7 @@ You can find a tutorial about this sensor [Here]() and the library documentation
 ##### Display setup
 The 2.0 inches RGB ILI9225 TFT Display was used in my case, while you can use other displays, it is strongly advised to use this one since they library is not portable and would only work for screens driven by the ILI9225 chip. The display has a resolution of 170x220 pixels and is driven by the ILI9225 chip. The display is connected to the ESP32 using the SPI protocol, although there are options to use the I2C protocol, the SPI protocol is faster and more reliable.
 ---
-***Pin connections: ILI9225 Display - ESP32***
+***Pin connections: ILI9225 Display - ESP32***<br>
 _VCC --- 5V_<br>
 _GND --- GND_<br>
 _LED --- 5V_<br>
@@ -180,4 +182,5 @@ There are a number of ways you can contribute to this project, you can:
 4. Improve documentation
 5. Make a new 3D design
 
-You can also reach me on [X](https://twitter.com/Victory2702) or via email at [victorychibuike111@gmail.com](mailto:victorychibuike111@gmail.com)
+> [!TIP]
+> You can reach me on [X](https://twitter.com/Victory2702) or via email at [victorychibuike111@gmail.com](mailto:victorychibuike111@gmail.com)
