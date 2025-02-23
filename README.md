@@ -141,13 +141,13 @@ _vcc --- 3.3v_<br>
 _GND --- GND_<br>
 _SDA --- D21_<br>
 _SCL --- D22_<br>
-
----
 You can find a tutorial about this sensor [Here]() and the library documentation [Here]()
 
+---
 
 ##### Display setup
-The 2.0 inches RGB ILI9225 TFT Display was used in my case, while you can use other displays, it is strongly advised to use this one since they library is not portable and would only work for screens driven by the ILI9225 chip. The display has a resolution of 170x220 pixels and is driven by the ILI9225 chip. The display is connected to the ESP32 using the SPI protocol, although there are options to use the I2C protocol, the SPI protocol is faster and more reliable.
+The 2.0 inches RGB ILI9225 TFT Display was used in my case, while you can use other displays, it is strongly advised to use this one since they library is not portable and would only work for screens driven by the ILI9225 chip. The display has a resolution of 170x220 pixels and is driven by the ILI9225 chip. The display is connected to the ESP32 using the SPI protocol, although there are options to use the I2C protocol, the SPI protocol is faster and more reliable.<br>
+
 ---
 ***Pin connections: ILI9225 Display - ESP32***<br>
 _VCC --- 5V_<br>
